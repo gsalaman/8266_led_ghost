@@ -4,6 +4,12 @@
  * See associated wiki for the wiring schematic.       
  */
 
+// Wifi Definitions
+#include <ESP8266WiFi.h>
+WiFiServer server(80);
+
+const char WiFiAPPSK[] = "dawson";
+
 // 74595 lines
 #define DATA_PIN  5
 #define CLK_PIN   0
@@ -339,6 +345,67 @@ void write_and_latch_byte( int data )
   latch_data();
   
 }
+
+void setupWiFi()
+{
+  WiFi.mode(WIFI_AP);
+
+  // Do a little work to get a unique-ish name. Append the
+  // last two bytes of the MAC (HEX'd) to "Thing-":
+  uint8_t mac[WL_MAC_ADDR_LENGTH];
+  WiFi.softAPmacAddress(mac);
+  String macID = String(mac[WL_MAC_ADDR_LENGTH - 2], HEX) +
+                 String(mac[WL_MAC_ADDR_LENGTH - 1], HEX);
+  macID.toUpperCase();
+  String AP_NameString = "Glenn's Frisbee " + macID;
+
+  char AP_NameChar[AP_NameString.length() + 1];
+  memset(AP_NameChar, 0, AP_NameString.length() + 1);
+
+  for (int i=0; i<AP_NameString.length(); i++)
+    AP_NameChar[i] = AP_NameString.charAt(i);
+
+  WiFi.softAP(AP_NameChar, WiFiAPPSK);
+
+  server.begin();
+}
+
+void process_wifi( void )
+{
+  // Check if a client has connected
+  WiFiClient client = server.available();
+  if (!client) 
+  {
+    return;
+  }
+
+  // Read the first line of the request
+  String req = client.readStringUntil('\r');
+  Serial.println(req);
+  client.flush();
+
+  // req has the needful info.  We'll eventually use that to set our 
+  // lights...but right now, just print it.
+  
+  // Prepare the response. Start with the common header:
+  client.print("HTTP/1.1 200 OK\r\n");
+  client.print("Content-Type: text/html\r\n\r\n");
+  client.print("<!DOCTYPE HTML>\r\n<html>\r\n");
+  client.print("<h2><font color=#f6a343>Glenn's Frisbee</h2>\r\n");
+  client.print("Text set to ");
+  client.print(req);
+  client.print("<br>");
+  client.print("</html>\n");
+
+  delay(1);
+  Serial.println("Client disonnected");
+
+  // The client will actually be disconnected 
+  // when the function returns and 'client' object is detroyed
+
+  
+}
+
 //==============================================================================================
 // FUNCTION:  setup
 //==============================================================================================
@@ -364,6 +431,8 @@ void setup()
   }
   latch_data();
 
+  setupWiFi();
+  
   delay(500);
   
   // now a quick LED test...write a 1 to all registers.
@@ -399,6 +468,8 @@ void loop()
   int *array;
   char display_string[10] = "GLENN";
   int display_strlen;
+
+  process_wifi();
 
   display_strlen = strlen(display_string);
 
