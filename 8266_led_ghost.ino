@@ -1,13 +1,12 @@
 /*=====================================================================
- * Using a 74595 to illustrate Shift Register concepts. 
- * 
- * See associated wiki for the wiring schematic.       
+ * http experiments      
  */
 
 // Wifi Definitions
 #include <ESP8266WiFi.h>
+#include <ESP8266WebServer.h>
 
-WiFiServer server(80);
+ESP8266WebServer server(80);
 
 const char WiFiAPPSK[] = "dawson";
 
@@ -353,7 +352,7 @@ void write_and_latch_byte( int data )
   
 }
 
-void setupWiFi()
+void oldsetupWiFi()
 {
   WiFi.mode(WIFI_AP);
 
@@ -430,6 +429,7 @@ void process_request( String request )
   
 }
 
+#if 0
 void process_wifi( void )
 {
   // Check if a client has connected
@@ -459,13 +459,35 @@ void process_wifi( void )
 
   delay(1);
   Serial.println("Client disonnected");
-
   // The client will actually be disconnected 
   // when the function returns and 'client' object is detroyed
 
   
 }
+#endif
 
+void handleRoot( void )
+{
+  server.send(200, "text/plain", "Hello World!!!");  
+}
+
+void handleNotFound( void )
+{
+  server.send(404, "text/plain", "404: Not found");
+}
+
+void setup_wifi( void )
+{
+  bool ret_val;
+  
+  ret_val = WiFi.softAP("Glenn's Frisbee");
+  //WiFi.softAP(ssid,pass,channel,hidden,max_connects);
+
+  Serial.print("Soft-AP config: ");
+  if (ret_val) Serial.println("Succeeded!");
+  else Serial.println("FAILED");
+
+}
 //==============================================================================================
 // FUNCTION:  setup
 //==============================================================================================
@@ -491,8 +513,12 @@ void setup()
   }
   latch_data();
 
-  setupWiFi();
+  setup_wifi();
+
+  server.on("/", handleRoot);
+  server.onNotFound(handleNotFound);
   server.begin();
+  Serial.println("HTTP server started");
   
   delay(500);
   
@@ -527,7 +553,8 @@ void loop()
   int *array;
   int display_strlen;
 
-  process_wifi();
+  //process_wifi();
+  server.handleClient();
   
   display_strlen = strlen(display_string);
 
