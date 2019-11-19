@@ -7,6 +7,7 @@
 #include <ESP8266WebServer.h>
 
 ESP8266WebServer server(80);
+IPAddress local_IP(192,168,4,10);
 
 const char WiFiAPPSK[] = "dawson";
 
@@ -352,38 +353,6 @@ void write_and_latch_byte( int data )
   
 }
 
-void oldsetupWiFi()
-{
-  WiFi.mode(WIFI_AP);
-
-  // Do a little work to get a unique-ish name. Append the
-  // last two bytes of the MAC (HEX'd) to "Thing-":
-  uint8_t mac[WL_MAC_ADDR_LENGTH];
-  WiFi.softAPmacAddress(mac);
-  String macID = String(mac[WL_MAC_ADDR_LENGTH - 2], HEX) +
-                 String(mac[WL_MAC_ADDR_LENGTH - 1], HEX);
-  macID.toUpperCase();
-  String AP_NameString = "Glenn's Frisbee " + macID;
-
-  Serial.print("WiFi configured.  AP name: ");
-  Serial.println(AP_NameString);
-
-  char AP_NameChar[AP_NameString.length() + 1];
-  memset(AP_NameChar, 0, AP_NameString.length() + 1);
-
-  for (int i=0; i<AP_NameString.length(); i++)
-    AP_NameChar[i] = AP_NameString.charAt(i);
-
-  WiFi.softAP(AP_NameChar, WiFiAPPSK);
-
-  Serial.print("** AP_NameChar: ");
-  Serial.println(AP_NameChar);
-  Serial.print("APPSK: ");
-  Serial.println(WiFiAPPSK);
-
-  
-}
-
 void process_request( String request )
 {
   int  text_index = 0;
@@ -468,7 +437,30 @@ void process_wifi( void )
 
 void handleRoot( void )
 {
-  server.send(200, "text/plain", "Hello World!!!");  
+  String myForm;
+  myForm = "<h1> Welcome to Glenn's Frisbee!!!</h1>";
+  myForm += "<form action=\"/input\" method=\"POST\">";
+  myForm += "<input type=\"text\" name=\"text\" <br>";
+  myForm += "<input type =\"submit\" value=\"SetText\">";
+  myForm += "</form>";
+  
+  server.send(200, "text/html", myForm);  
+}
+
+void handleInput()
+{
+  if (!server.hasArg("text") || server.arg("text") == NULL)
+  {
+    server.send(400, "text/plain", "400:  Invalid request");
+    return;
+  }
+
+  server.send(200, "text/html", "<h1>Frisbee text set to " + server.arg("text") + "</h1>");
+
+  //server.sendHeader("Location", "/");
+  //server.send(303);
+  
+  Serial.println("CLICK!!");
 }
 
 void handleNotFound( void )
@@ -479,6 +471,8 @@ void handleNotFound( void )
 void setup_wifi( void )
 {
   bool ret_val;
+
+  //WiFi.softAPConfig(local_IP, gateway, subnet);
   
   ret_val = WiFi.softAP("Glenn's Frisbee");
   //WiFi.softAP(ssid,pass,channel,hidden,max_connects);
@@ -486,8 +480,8 @@ void setup_wifi( void )
   Serial.print("Soft-AP config: ");
   if (ret_val) Serial.println("Succeeded!");
   else Serial.println("FAILED");
-
 }
+
 //==============================================================================================
 // FUNCTION:  setup
 //==============================================================================================
@@ -515,8 +509,10 @@ void setup()
 
   setup_wifi();
 
-  server.on("/", handleRoot);
+  server.on("/", HTTP_GET, handleRoot);
+  server.on("/input", HTTP_POST, handleInput);
   server.onNotFound(handleNotFound);
+  
   server.begin();
   Serial.println("HTTP server started");
   
