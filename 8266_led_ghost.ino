@@ -4,6 +4,19 @@
  * See associated wiki for the wiring schematic.       
  */
 
+// Wifi Definitions
+#include <ESP8266WiFi.h>
+
+WiFiServer server(80);
+
+const char WiFiAPPSK[] = "dawson";
+
+int char_index=0;
+int column_index = 0;
+char display_string[20] = "GLENN";
+
+bool debug=false;
+  
 // 74595 lines
 #define DATA_PIN  5
 #define CLK_PIN   0
@@ -85,7 +98,7 @@ int F[] = {0, 0x7F, 0x48, 0x48, 0x48, 0};
 // 1 0 1 1
 // 1 0 0 1
 // 0 1 1 0
-int G[] = {0, 0x3E, 0x41, 0x41, 0x26, 0};
+int G[] = {0, 0x3E, 0x41, 0x45, 0x26, 0};
 
 // H:
 // 1 0 0 1
@@ -339,6 +352,120 @@ void write_and_latch_byte( int data )
   latch_data();
   
 }
+
+void setupWiFi()
+{
+  WiFi.mode(WIFI_AP);
+
+  // Do a little work to get a unique-ish name. Append the
+  // last two bytes of the MAC (HEX'd) to "Thing-":
+  uint8_t mac[WL_MAC_ADDR_LENGTH];
+  WiFi.softAPmacAddress(mac);
+  String macID = String(mac[WL_MAC_ADDR_LENGTH - 2], HEX) +
+                 String(mac[WL_MAC_ADDR_LENGTH - 1], HEX);
+  macID.toUpperCase();
+  String AP_NameString = "Glenn's Frisbee " + macID;
+
+  Serial.print("WiFi configured.  AP name: ");
+  Serial.println(AP_NameString);
+
+  char AP_NameChar[AP_NameString.length() + 1];
+  memset(AP_NameChar, 0, AP_NameString.length() + 1);
+
+  for (int i=0; i<AP_NameString.length(); i++)
+    AP_NameChar[i] = AP_NameString.charAt(i);
+
+  WiFi.softAP(AP_NameChar, WiFiAPPSK);
+
+  Serial.print("** AP_NameChar: ");
+  Serial.println(AP_NameChar);
+  Serial.print("APPSK: ");
+  Serial.println(WiFiAPPSK);
+
+  
+}
+
+void process_request( String request )
+{
+  int  text_index = 0;
+  int  request_index;
+  
+  char frisbee_text[request.length() + 1];
+  memset(frisbee_text, 0, request.length() + 1);
+
+  request_index = request.indexOf("/frisbee");
+  if (request_index == -1)
+  {
+    Serial.println("didn't find frisbee string");
+  }
+  else
+  {
+    Serial.println("found frisbee string");
+
+    // copy string until we find a space
+    for (request_index = request_index+9; request_index < request.length(); request_index++)
+    {
+      if (request.charAt(request_index) == ' ')
+      {
+        Serial.print("Setting text to: ");
+        Serial.println(frisbee_text);
+
+        strncpy(display_string, frisbee_text, 20);
+        char_index = 0;
+        column_index = 0;
+        return;
+        
+      }
+      else
+      {
+        // dangerous assumption:  the text we get is lower case, and we want upper.  
+        // Add checking to make sure we've got valid chars later.
+        frisbee_text[text_index] = request.charAt(request_index) - 32;
+      }
+      
+      text_index++;
+    }  // end of copying string
+    
+  } // end of "else found frisbee string"
+  
+}
+
+void process_wifi( void )
+{
+  // Check if a client has connected
+  WiFiClient client = server.available();
+  if (!client) 
+  {
+    return;
+  }
+
+  // Read the first line of the request
+  String req = client.readStringUntil('\r');
+  Serial.println(req);
+  client.flush();
+
+  // process the request
+  process_request(req);
+  
+  // Prepare the response. Start with the common header:
+  client.print("HTTP/1.1 200 OK\r\n");
+  client.print("Content-Type: text/html\r\n\r\n");
+  client.print("<!DOCTYPE HTML>\r\n<html>\r\n");
+  client.print("<h2><font color=#f6a343>Glenn's Frisbee</h2>\r\n");
+  client.print("Text set to ");
+  client.print(display_string);
+  client.print("<br>");
+  client.print("</html>\n");
+
+  delay(1);
+  Serial.println("Client disonnected");
+
+  // The client will actually be disconnected 
+  // when the function returns and 'client' object is detroyed
+
+  
+}
+
 //==============================================================================================
 // FUNCTION:  setup
 //==============================================================================================
@@ -364,6 +491,9 @@ void setup()
   }
   latch_data();
 
+  setupWiFi();
+  server.begin();
+  
   delay(500);
   
   // now a quick LED test...write a 1 to all registers.
@@ -394,12 +524,11 @@ void setup()
 #define NUM_COLUMNS 6
 void loop() 
 {
-  static int char_index=0;
-  static int column_index = 0;
   int *array;
-  char display_string[10] = "GLENN";
   int display_strlen;
 
+  process_wifi();
+  
   display_strlen = strlen(display_string);
 
   if (char_index == display_strlen)
