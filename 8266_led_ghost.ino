@@ -13,7 +13,9 @@ const char WiFiAPPSK[] = "dawson";
 
 int char_index=0;
 int column_index = 0;
-char display_string[20] = "GLENN";
+
+#define DISPLAY_STRING_MAX_LENGTH 20
+char display_string[DISPLAY_STRING_MAX_LENGTH] = "GLENN";
 
 bool debug=false;
   
@@ -353,94 +355,18 @@ void write_and_latch_byte( int data )
   
 }
 
-void process_request( String request )
-{
-  int  text_index = 0;
-  int  request_index;
-  
-  char frisbee_text[request.length() + 1];
-  memset(frisbee_text, 0, request.length() + 1);
-
-  request_index = request.indexOf("/frisbee");
-  if (request_index == -1)
-  {
-    Serial.println("didn't find frisbee string");
-  }
-  else
-  {
-    Serial.println("found frisbee string");
-
-    // copy string until we find a space
-    for (request_index = request_index+9; request_index < request.length(); request_index++)
-    {
-      if (request.charAt(request_index) == ' ')
-      {
-        Serial.print("Setting text to: ");
-        Serial.println(frisbee_text);
-
-        strncpy(display_string, frisbee_text, 20);
-        char_index = 0;
-        column_index = 0;
-        return;
-        
-      }
-      else
-      {
-        // dangerous assumption:  the text we get is lower case, and we want upper.  
-        // Add checking to make sure we've got valid chars later.
-        frisbee_text[text_index] = request.charAt(request_index) - 32;
-      }
-      
-      text_index++;
-    }  // end of copying string
-    
-  } // end of "else found frisbee string"
-  
-}
-
-#if 0
-void process_wifi( void )
-{
-  // Check if a client has connected
-  WiFiClient client = server.available();
-  if (!client) 
-  {
-    return;
-  }
-
-  // Read the first line of the request
-  String req = client.readStringUntil('\r');
-  Serial.println(req);
-  client.flush();
-
-  // process the request
-  process_request(req);
-  
-  // Prepare the response. Start with the common header:
-  client.print("HTTP/1.1 200 OK\r\n");
-  client.print("Content-Type: text/html\r\n\r\n");
-  client.print("<!DOCTYPE HTML>\r\n<html>\r\n");
-  client.print("<h2><font color=#f6a343>Glenn's Frisbee</h2>\r\n");
-  client.print("Text set to ");
-  client.print(display_string);
-  client.print("<br>");
-  client.print("</html>\n");
-
-  delay(1);
-  Serial.println("Client disonnected");
-  // The client will actually be disconnected 
-  // when the function returns and 'client' object is detroyed
-
-  
-}
-#endif
-
 void handleRoot( void )
 {
   String myForm;
+  String current_string=display_string;
+
+  
   myForm = "<h1> Welcome to Glenn's Frisbee!!!</h1>";
   myForm += "<form action=\"/input\" method=\"POST\">";
-  myForm += "<input type=\"text\" name=\"text\" <br>";
+  myForm += "<input type=\"text\" name=\"text\" placeholder=\"";
+  myForm += current_string;
+  myForm +="\"";
+  myForm +="<br>";
   myForm += "<input type =\"submit\" value=\"SetText\">";
   myForm += "</form>";
   
@@ -449,16 +375,29 @@ void handleRoot( void )
 
 void handleInput()
 {
+  String input_string;
+  
   if (!server.hasArg("text") || server.arg("text") == NULL)
   {
     server.send(400, "text/plain", "400:  Invalid request");
     return;
   }
 
-  server.send(200, "text/html", "<h1>Frisbee text set to " + server.arg("text") + "</h1>");
+  Serial.print("Setting display_string to ");
+  Serial.println(server.arg("text"));
 
-  //server.sendHeader("Location", "/");
-  //server.send(303);
+  char_index = 0;
+  column_index = 0;
+  
+  // I'm going to go ahead and bulk copy the string here.  I'll deal with
+  // upper case conversion and checking for bad characters as we display it.
+  server.arg("text").toCharArray(display_string, DISPLAY_STRING_MAX_LENGTH);
+
+
+  //server.send(200, "text/html", "<h1>Frisbee text set to " + server.arg("text") + "</h1>");
+
+  server.sendHeader("Location", "/");
+  server.send(303);
   
   Serial.println("CLICK!!");
 }
@@ -548,6 +487,7 @@ void loop()
 {
   int *array;
   int display_strlen;
+  char display_char;
 
   //process_wifi();
   server.handleClient();
@@ -560,13 +500,32 @@ void loop()
   }
   else
   {
-    array = char_map[ (display_string[char_index] - 'A') ];
+    display_char = display_string[char_index];
+    
+    //Serial.print("display char:");
+    //Serial.println(display_char);
+
+    if ((display_char >= 'A') && (display_char <= 'Z')) 
+    {
+      // upper case...use 'A' as a reference into our array.
+      array = char_map[display_char - 'A'];  
+    }
+    else if ((display_char >= 'a') && (display_char <= 'z'))
+    {
+      // lower case char.  Use 'a' to reference into our array.
+      array = char_map[display_char - 'a'];
+    }
+    else 
+    {
+      // invalid character.  Make it a blank.
+      array = blank;
+    }
   }
   
   write_and_latch_byte(array[column_index]);
   
-  // Serial.print("byte: ");
-  // Serial.println(array[column_index]);
+  //Serial.print("byte: ");
+  //Serial.println(array[column_index]);
 
   column_index++;
   if (column_index == 6)
