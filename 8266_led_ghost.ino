@@ -6,8 +6,13 @@
 #include <ESP8266WiFi.h>
 #include <ESP8266WebServer.h>
 
+#include <EEPROM.h>
+
+
+#define INIT_NV
+
 ESP8266WebServer server(80);
-IPAddress local_IP(192,168,4,10);
+IPAddress local_IP(192,168,4,1);
 
 const char WiFiAPPSK[] = "dawson";
 
@@ -15,14 +20,28 @@ int char_index=0;
 int column_index = 0;
 
 #define DISPLAY_STRING_MAX_LENGTH 20
-char display_string[DISPLAY_STRING_MAX_LENGTH] = "GLENN";
+
+typedef enum
+{
+  TEXT_DIR_FWD = 1,
+  TEXT_DIR_BACK
+} text_dir_type;
+
+typedef struct
+{
+  char          display_string[DISPLAY_STRING_MAX_LENGTH];
+  text_dir_type text_dir;
+  int           led_delay_ms;
+} nv_data_type;
+
+nv_data_type nv_data;
 
 bool debug=false;
   
 // 74595 lines
 #define DATA_PIN  5
-#define CLK_PIN   0
-#define LATCH_PIN 4
+#define CLK_PIN   4
+#define LATCH_PIN 0
 
 // We have 8 output LEDs in our current incarnation.
 #define OUTPUT_LINES 8
@@ -358,7 +377,7 @@ void write_and_latch_byte( int data )
 void handleRoot( void )
 {
   String myForm;
-  String current_string=display_string;
+  String current_string=nv_data.display_string;
 
   
   myForm = "<h1> Welcome to Glenn's Frisbee!!!</h1>";
@@ -391,7 +410,11 @@ void handleInput()
   
   // I'm going to go ahead and bulk copy the string here.  I'll deal with
   // upper case conversion and checking for bad characters as we display it.
-  server.arg("text").toCharArray(display_string, DISPLAY_STRING_MAX_LENGTH);
+  server.arg("text").toCharArray(nv_data.display_string, DISPLAY_STRING_MAX_LENGTH);
+
+  // store the new string to NV for next time.
+  EEPROM.put(0, nv_data);
+  EEPROM.commit();
 
 
   //server.send(200, "text/html", "<h1>Frisbee text set to " + server.arg("text") + "</h1>");
@@ -430,6 +453,25 @@ void setup()
   
   Serial.begin(9600);
 
+  EEPROM.begin(sizeof(nv_data_type));
+  EEPROM.get(0,nv_data);
+
+  #ifdef INIT_NV
+  strcpy(nv_data.display_string, "GLENN");
+  nv_data.text_dir = TEXT_DIR_FWD;
+  nv_data.led_delay_ms = 1;
+  EEPROM.put(0,nv_data);
+  EEPROM.commit();
+  #endif
+
+  Serial.println("\nNV Config:");
+  Serial.print("  Display string:  ");
+  Serial.println(nv_data.display_string);
+  Serial.print("  text_dir: ");
+  Serial.println(nv_data.text_dir);
+  Serial.print("  led delay (ms): ");
+  Serial.println(nv_data.led_delay_ms);
+  
   pinMode(DATA_PIN, OUTPUT);
   pinMode(CLK_PIN, OUTPUT);
   pinMode(LATCH_PIN, OUTPUT);
@@ -492,7 +534,7 @@ void loop()
   //process_wifi();
   server.handleClient();
   
-  display_strlen = strlen(display_string);
+  display_strlen = strlen(nv_data.display_string);
 
   if (char_index == display_strlen)
   {
@@ -500,7 +542,7 @@ void loop()
   }
   else
   {
-    display_char = display_string[char_index];
+    display_char = nv_data.display_string[char_index];
     
     //Serial.print("display char:");
     //Serial.println(display_char);
@@ -535,6 +577,6 @@ void loop()
     if (char_index == display_strlen + 1) char_index = 0;
   }
 
-  delay(1);
+  delay(nv_data.led_delay_ms);
   
 }
