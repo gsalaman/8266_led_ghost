@@ -384,15 +384,25 @@ void handleRoot( void )
   
   myForm = "<h1> Welcome to Glenn's Frisbee!!!</h1>";
   myForm += "<form action=\"/input\" method=\"POST\">";
-  myForm += "<input type=\"text\" name=\"text\" placeholder=\"";
-  myForm += current_string;
-  myForm +="\"";
-  myForm +="<br>";
-  myForm += "<input type =\"submit\" value=\"SetText\"><br>";
-  myForm += "<input type = \"text\" name=\"delay\" placeholder=\"";
-  myForm += delay_str;
-  myForm +="\"<br>";
-  myForm += "<input type = \"submit\" value=\"SetDelay\"><br>";
+
+  myForm +=    "<div>";
+  myForm +=       "<label for=\"text_box\">Display Text:</label>";
+  myForm +=       "<input type=\"text\" id=\"text_box\" name=\"text\" placeholder=\"";
+  myForm +=           current_string;
+  myForm +=           "\"";
+  myForm +=    "</div>";
+  
+  myForm +=    "<div>";
+  myForm +=       "<label for=\"delay_box\">Led Delay (ms):</label>";
+  myForm +=       "<input type=\"text\" id=\"delay_box\" name=\"delay\" placeholder=\"";
+  myForm +=           delay_str;
+  myForm +=           "\"";
+  myForm +=    "</div>";
+  
+  myForm +=    "<div>";
+  myForm +=       "<input type = \"submit\" value=\"Set Values\">";
+  myForm +=    "</div>";
+  
   myForm += "</form>";
   
   server.send(200, "text/html", myForm);  
