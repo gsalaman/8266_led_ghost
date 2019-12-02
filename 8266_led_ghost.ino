@@ -9,7 +9,7 @@
 #include <EEPROM.h>
 
 
-#define INIT_NV
+//#define INIT_NV
 
 ESP8266WebServer server(80);
 IPAddress local_IP(192,168,4,1);
@@ -378,7 +378,9 @@ void handleRoot( void )
 {
   String myForm;
   String current_string=nv_data.display_string;
-
+  String delay_str;
+  
+  delay_str = String(nv_data.led_delay_ms);
   
   myForm = "<h1> Welcome to Glenn's Frisbee!!!</h1>";
   myForm += "<form action=\"/input\" method=\"POST\">";
@@ -386,7 +388,11 @@ void handleRoot( void )
   myForm += current_string;
   myForm +="\"";
   myForm +="<br>";
-  myForm += "<input type =\"submit\" value=\"SetText\">";
+  myForm += "<input type =\"submit\" value=\"SetText\"><br>";
+  myForm += "<input type = \"text\" name=\"delay\" placeholder=\"";
+  myForm += delay_str;
+  myForm +="\"<br>";
+  myForm += "<input type = \"submit\" value=\"SetDelay\"><br>";
   myForm += "</form>";
   
   server.send(200, "text/html", myForm);  
@@ -395,34 +401,52 @@ void handleRoot( void )
 void handleInput()
 {
   String input_string;
-  
-  if (!server.hasArg("text") || server.arg("text") == NULL)
+  bool   set_something=false;
+
+  if (server.hasArg("text") && (server.arg("text") != NULL))
   {
-    server.send(400, "text/plain", "400:  Invalid request");
-    return;
+    Serial.print("Setting display_string to ");
+    Serial.println(server.arg("text"));
+
+    char_index = 0;
+    column_index = 0;
+  
+    // I'm going to go ahead and bulk copy the string here.  I'll deal with
+    // upper case conversion and checking for bad characters as we display it.
+    server.arg("text").toCharArray(nv_data.display_string, DISPLAY_STRING_MAX_LENGTH);
+
+    set_something = true;
+    
+  }  // Text arg.
+
+  if (server.hasArg("delay") && server.arg("delay") != NULL)
+  {
+    // if the integer conversion fails, we'll get a zero.  I think that's okay.
+    nv_data.led_delay_ms = server.arg("delay").toInt();
+
+    Serial.print("Setting delay to ");
+    Serial.println(nv_data.led_delay_ms);
+
+    set_something = true;
+    
+  }  // delay arg.
+
+  // Now that we're through processing arguments, check and see if we actually did anything
+  if (set_something)
+  {
+    // store the new data to NV for next time.
+    EEPROM.put(0, nv_data);
+    EEPROM.commit();
+
+    server.sendHeader("Location", "/");
+    server.send(303);
   }
-
-  Serial.print("Setting display_string to ");
-  Serial.println(server.arg("text"));
-
-  char_index = 0;
-  column_index = 0;
-  
-  // I'm going to go ahead and bulk copy the string here.  I'll deal with
-  // upper case conversion and checking for bad characters as we display it.
-  server.arg("text").toCharArray(nv_data.display_string, DISPLAY_STRING_MAX_LENGTH);
-
-  // store the new string to NV for next time.
-  EEPROM.put(0, nv_data);
-  EEPROM.commit();
-
-
-  //server.send(200, "text/html", "<h1>Frisbee text set to " + server.arg("text") + "</h1>");
-
-  server.sendHeader("Location", "/");
-  server.send(303);
-  
-  Serial.println("CLICK!!");
+  else
+  {
+    // If we got here, we had an unprocessed input.  Return the 400 and get out.
+    server.send(400, "text/plain", "400:  Invalid request");
+  }
+    
 }
 
 void handleNotFound( void )
