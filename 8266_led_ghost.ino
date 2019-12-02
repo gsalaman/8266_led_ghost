@@ -367,12 +367,53 @@ void write_and_latch_byte( int data )
     write_bit(temp_bit);
 
     // now shift our byte to get the next bit
-    temp_data = temp_data << 1;   
+    temp_data = temp_data << 1;     
   }
 
   latch_data();
   
 }
+
+const String styleInfo = 
+  "<style>\
+    form\
+    {\
+      margin: 0 auto;\
+      width: 400px;\
+      padding: 1em;\
+      border: 1px solid #CCC;\
+      border-radius: 1em;\
+    }\
+    form div\
+    {\
+      margin-top: 1em;\
+    }\
+    label\
+    {\
+      display: inline-block;\
+      width: 180px;\
+      text-align: right;\
+    }\
+    input\
+    {\
+      font: 1em sans-serif;\
+      width: 200px;\
+      box-sizing: border-box;\
+      border: 1px solid #999;\
+    }\
+    input:focus\
+    {\
+      border-color: #000;\
+    }\
+    button { font: 1em sans-serif; margin-left:40% }\
+    button:hover,button:focus\
+    {\
+      outline : none;\
+      background: #000;\
+      color: #FFF;\
+    }\
+  </style>";
+    
 
 void handleRoot( void )
 {
@@ -382,7 +423,11 @@ void handleRoot( void )
   
   delay_str = String(nv_data.led_delay_ms);
   
-  myForm = "<h1> Welcome to Glenn's Frisbee!!!</h1>";
+  myForm = "<html><head><title>Glenn's Frisbee</title>";
+  myForm += styleInfo;
+  myForm += "</head>";
+
+  myForm += "<body><h1> Welcome to Glenn's Frisbee!!!</h1>";
   myForm += "<form action=\"/input\" method=\"POST\">";
 
   myForm +=    "<div>";
@@ -400,10 +445,12 @@ void handleRoot( void )
   myForm +=    "</div>";
   
   myForm +=    "<div>";
-  myForm +=       "<input type = \"submit\" value=\"Set Values\">";
+  myForm +=       "<button type = \"submit\">Set values</button>";
   myForm +=    "</div>";
   
   myForm += "</form>";
+
+  myForm += "</body></html>";
   
   server.send(200, "text/html", myForm);  
 }
