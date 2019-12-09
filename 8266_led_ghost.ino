@@ -490,6 +490,15 @@ void handleRoot( void )
   if (nv_data.letter_dir == LETTER_DIR_1_TOP) myForm += " checked";
   myForm +=            ">1-top<br>";
   myForm +=    "</div>";
+
+  myForm +=    "<div>";
+  myForm +=       "<input type=\"radio\" name=\"text_dir\" value=\"1\"";
+  if (nv_data.text_dir == TEXT_DIR_FWD) myForm += " checked";
+  myForm +=            ">left-right<br>";
+  myForm +=       "<input type=\"radio\" name=\"text_dir\" value=\"2\"";
+  if (nv_data.text_dir == TEXT_DIR_BACK) myForm += " checked";
+  myForm +=            ">right-left<br>";
+  myForm +=    "</div>";
   
   myForm +=    "<div>";
   myForm +=       "<button type = \"submit\">Set values</button>";
@@ -506,7 +515,6 @@ void handleInput()
 {
   String   input_string;
   long int input_int;
-  bool     set_something=false;
 
   if (server.hasArg("text") && (server.arg("text") != NULL))
   {
@@ -519,8 +527,6 @@ void handleInput()
     // I'm going to go ahead and bulk copy the string here.  I'll deal with
     // upper case conversion and checking for bad characters as we display it.
     server.arg("text").toCharArray(nv_data.display_string, DISPLAY_STRING_MAX_LENGTH);
-
-    set_something = true;
     
   }  // Text arg.
 
@@ -531,8 +537,6 @@ void handleInput()
 
     Serial.print("Setting delay to ");
     Serial.println(nv_data.led_delay_us);
-
-    set_something = true;
     
   }  // delay arg.
 
@@ -553,26 +557,35 @@ void handleInput()
     
     Serial.print("Setting letter dir to ");
     Serial.println(nv_data.letter_dir);
-
-    set_something = true;
     
-  }  // delay arg.
+  }  // letter dir.
 
-  // Now that we're through processing arguments, check and see if we actually did anything
-  if (set_something)
+  if (server.hasArg("text_dir") && server.arg("text_dir") != NULL)
   {
-    // store the new data to NV for next time.
-    EEPROM.put(0, nv_data);
-    EEPROM.commit();
+    // if the integer conversion fails, we'll get a zero.
+    input_int = server.arg("text_dir").toInt();
 
-    server.sendHeader("Location", "/");
-    server.send(303);
-  }
-  else
-  {
-    // If we got here, we had an unprocessed input.  Return the 400 and get out.
-    server.send(400, "text/plain", "400:  Invalid request");
-  }
+    if ((input_int != TEXT_DIR_FWD) && (input_int != TEXT_DIR_BACK))
+    { 
+      Serial.println("Invalid Text Dir.  Setting to 1 (FWD)");
+      nv_data.text_dir = TEXT_DIR_FWD;
+    }
+    else
+    {
+      nv_data.text_dir = (text_dir_type) input_int;
+    }
+    
+    Serial.print("Setting text dir to ");
+    Serial.println(nv_data.text_dir);
+    
+  }  // text dir.
+  
+  // store the new data to NV for next time.
+  EEPROM.put(0, nv_data);
+  EEPROM.commit();
+
+  server.sendHeader("Location", "/");
+  server.send(303);
     
 }
 
@@ -732,12 +745,34 @@ void loop()
   //Serial.print("byte: ");
   //Serial.println(array[column_index]);
 
-  column_index++;
-  if (column_index == 6)
+  if (nv_data.text_dir == TEXT_DIR_FWD)
   {
-    column_index = 0;
-    char_index++;
-    if (char_index == display_strlen + 1) char_index = 0;
+    column_index++;
+    if (column_index == 6)
+    {
+      column_index = 0;
+      char_index++;
+      if (char_index == display_strlen + 1) char_index = 0;
+    }
+  }
+  else
+  {
+    if (column_index == 0)
+    {
+      column_index = 5;
+      if (char_index == 0)
+      {
+        char_index = display_strlen;
+      }
+      else
+      {
+        char_index--;
+      }
+    }
+    else
+    {
+      column_index--;
+    }
   }
 
   delayMicroseconds(nv_data.led_delay_us);
