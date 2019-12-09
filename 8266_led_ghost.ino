@@ -30,7 +30,7 @@ typedef enum
 typedef enum
 {
   LETTER_DIR_1_BOTTOM = 1,
-  LETTER_DIR_1_TOP
+  LETTER_DIR_1_TOP = 2
 } letter_dir_type;
 
 typedef struct
@@ -458,10 +458,8 @@ void handleRoot( void )
   String myForm;
   String current_string=nv_data.display_string;
   String delay_str;
-  String letter_dir_str;
   
   delay_str = String(nv_data.led_delay_us);
-  letter_dir_str = String(nv_data.letter_dir);
   
   myForm = "<html><head><title>Glenn's Frisbee</title>";
   myForm += styleInfo;
@@ -485,10 +483,12 @@ void handleRoot( void )
   myForm +=    "</div>";
 
   myForm +=    "<div>";
-  myForm +=       "<label for=\"letter_dir_box\">1=bottom/top, 2=top/bottom:</label>";
-  myForm +=       "<input type=\"text\" id=\"letter_dir_box\" name=\"letter_dir\" placeholder=\"";
-  myForm +=           letter_dir_str;
-  myForm +=           "\"";
+  myForm +=       "<input type=\"radio\" name=\"letter_dir\" value=\"1\"";
+  if (nv_data.letter_dir == LETTER_DIR_1_BOTTOM) myForm += " checked";
+  myForm +=            ">1-bottom<br>";
+  myForm +=       "<input type=\"radio\" name=\"letter_dir\" value=\"2\"";
+  if (nv_data.letter_dir == LETTER_DIR_1_TOP) myForm += " checked";
+  myForm +=            ">1-top<br>";
   myForm +=    "</div>";
   
   myForm +=    "<div>";
