@@ -27,11 +27,18 @@ typedef enum
   TEXT_DIR_BACK
 } text_dir_type;
 
+typedef enum
+{
+  LETTER_DIR_1_BOTTOM = 1,
+  LETTER_DIR_1_TOP
+} letter_dir_type;
+
 typedef struct
 {
-  char          display_string[DISPLAY_STRING_MAX_LENGTH];
-  text_dir_type text_dir;
-  int           led_delay_ms;
+  char            display_string[DISPLAY_STRING_MAX_LENGTH];
+  text_dir_type   text_dir;
+  int             led_delay_us;
+  letter_dir_type letter_dir;
 } nv_data_type;
 
 nv_data_type nv_data;
@@ -346,7 +353,8 @@ void latch_data( void )
 //==============================================================================================
 // FUNCTION:  write_and_latch_byte
 //
-// Writes an entire byte to the shift register, and then latches the data.  
+// Writes an entire byte to the shift register, and then latches the data.  Note this function
+// goes MSB first.
 //==============================================================================================
 #define BITS_IN_BYTE 8
 void write_and_latch_byte( int data )
@@ -368,6 +376,36 @@ void write_and_latch_byte( int data )
 
     // now shift our byte to get the next bit
     temp_data = temp_data << 1;     
+  }
+
+  latch_data();
+  
+}
+
+//==============================================================================================
+// FUNCTION:  write_and_latch_byte_lsb_first
+//
+// Writes an entire byte to the shift register, and then latches the data.  Note this function
+// goes LSB first.
+//==============================================================================================
+void write_and_latch_byte_lsb_first( int data )
+{
+  int temp_bit;
+  int temp_data;
+  int i;
+  
+  data &= 0xFF;
+    
+  temp_data = data;
+  
+  for (i = 0; i < BITS_IN_BYTE; i++)
+  {
+    // we only want the LSB
+    temp_bit = temp_data & 0x01;
+    write_bit(temp_bit);
+
+    // now shift our byte to get the next bit
+    temp_data = temp_data >> 1;     
   }
 
   latch_data();
@@ -420,8 +458,10 @@ void handleRoot( void )
   String myForm;
   String current_string=nv_data.display_string;
   String delay_str;
+  String letter_dir_str;
   
-  delay_str = String(nv_data.led_delay_ms);
+  delay_str = String(nv_data.led_delay_us);
+  letter_dir_str = String(nv_data.letter_dir);
   
   myForm = "<html><head><title>Glenn's Frisbee</title>";
   myForm += styleInfo;
@@ -438,9 +478,16 @@ void handleRoot( void )
   myForm +=    "</div>";
   
   myForm +=    "<div>";
-  myForm +=       "<label for=\"delay_box\">Led Delay (ms):</label>";
+  myForm +=       "<label for=\"delay_box\">Led Delay (us):</label>";
   myForm +=       "<input type=\"text\" id=\"delay_box\" name=\"delay\" placeholder=\"";
   myForm +=           delay_str;
+  myForm +=           "\"";
+  myForm +=    "</div>";
+
+  myForm +=    "<div>";
+  myForm +=       "<label for=\"letter_dir_box\">1=bottom/top, 2=top/bottom:</label>";
+  myForm +=       "<input type=\"text\" id=\"letter_dir_box\" name=\"letter_dir\" placeholder=\"";
+  myForm +=           letter_dir_str;
   myForm +=           "\"";
   myForm +=    "</div>";
   
@@ -457,8 +504,9 @@ void handleRoot( void )
 
 void handleInput()
 {
-  String input_string;
-  bool   set_something=false;
+  String   input_string;
+  long int input_int;
+  bool     set_something=false;
 
   if (server.hasArg("text") && (server.arg("text") != NULL))
   {
@@ -479,10 +527,32 @@ void handleInput()
   if (server.hasArg("delay") && server.arg("delay") != NULL)
   {
     // if the integer conversion fails, we'll get a zero.  I think that's okay.
-    nv_data.led_delay_ms = server.arg("delay").toInt();
+    nv_data.led_delay_us = server.arg("delay").toInt();
 
     Serial.print("Setting delay to ");
-    Serial.println(nv_data.led_delay_ms);
+    Serial.println(nv_data.led_delay_us);
+
+    set_something = true;
+    
+  }  // delay arg.
+
+  if (server.hasArg("letter_dir") && server.arg("letter_dir") != NULL)
+  {
+    // if the integer conversion fails, we'll get a zero.
+    input_int = server.arg("letter_dir").toInt();
+
+    if ((input_int != LETTER_DIR_1_BOTTOM) && (input_int != LETTER_DIR_1_TOP))
+    { 
+      Serial.println("Invalid Letter Dir.  Setting to 1 (1=bottom)");
+      nv_data.letter_dir = LETTER_DIR_1_BOTTOM;
+    }
+    else
+    {
+      nv_data.letter_dir = (letter_dir_type) input_int;
+    }
+    
+    Serial.print("Setting letter dir to ");
+    Serial.println(nv_data.letter_dir);
 
     set_something = true;
     
@@ -551,7 +621,9 @@ void setup()
   Serial.print("  text_dir: ");
   Serial.println(nv_data.text_dir);
   Serial.print("  led delay (ms): ");
-  Serial.println(nv_data.led_delay_ms);
+  Serial.println(nv_data.led_delay_us);
+  Serial.print("  letter_dir: ");
+  Serial.println(nv_data.letter_dir);
   
   pinMode(DATA_PIN, OUTPUT);
   pinMode(CLK_PIN, OUTPUT);
@@ -644,8 +716,18 @@ void loop()
       array = blank;
     }
   }
-  
-  write_and_latch_byte(array[column_index]);
+
+  // by default, we're latching in from LED 1 to 8...meaning that write_and_latch_byte
+  // will display the row with 1 being the bottom and 8 being the top.  
+  if (nv_data.letter_dir == LETTER_DIR_1_BOTTOM)
+  {
+    write_and_latch_byte(array[column_index]);
+  }
+  // Otherwise, we want to do the writes LSB first, so that 8 is the bottom and 1 is the top.
+  else
+  {
+    write_and_latch_byte_lsb_first(array[column_index]);
+  }
   
   //Serial.print("byte: ");
   //Serial.println(array[column_index]);
@@ -658,6 +740,6 @@ void loop()
     if (char_index == display_strlen + 1) char_index = 0;
   }
 
-  delay(nv_data.led_delay_ms);
+  delayMicroseconds(nv_data.led_delay_us);
   
 }
