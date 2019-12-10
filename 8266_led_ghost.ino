@@ -432,7 +432,7 @@ const String styleInfo =
       width: 180px;\
       text-align: right;\
     }\
-    input\
+    input[type=text]\
     {\
       font: 1em sans-serif;\
       width: 200px;\
