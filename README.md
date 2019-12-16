@@ -21,6 +21,7 @@ own WiFi network.  I've chosen the latter...that way you can still change the st
 To do the web control, I'm using Arduino's ESP8266WiFi.h and ESP8266WebServer.h libraries.  The web server library lets you set 
 up handler functions for when a client connects, and also how to process inputs.  It's been a while since I've coded HTML and CSS; 
 I used these links to help:
+
 https://developer.mozilla.org/en-US/docs/Learn/HTML/Forms/Your_first_HTML_form
 https://tttapa.github.io/ESP8266/Chap10%20-%20Simple%20Web%20Server.html
 
