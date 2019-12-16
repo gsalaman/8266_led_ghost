@@ -26,6 +26,7 @@ https://tttapa.github.io/ESP8266/Chap10%20-%20Simple%20Web%20Server.html
 
 ## Hardware
 My first cut was a hand-spun prototype of the LED board, but I then used this as a mechanism to do a custom surface mount board.  KiCad schematic is here:
+![ghost_schematic](https://user-images.githubusercontent.com/43499190/70913332-0de6a000-1fd3-11ea-8644-90bc8d24a37a.jpg)
 
 To do surface mount, you need to specify a Bill-of-Materials and Pick-and-place file to the manufacturer (in addition to the Gerber Files for board creation).  
 
