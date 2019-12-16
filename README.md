@@ -24,3 +24,9 @@ I used these links to help:
 https://developer.mozilla.org/en-US/docs/Learn/HTML/Forms/Your_first_HTML_form
 https://tttapa.github.io/ESP8266/Chap10%20-%20Simple%20Web%20Server.html
 
+## Hardware
+My first cut was a hand-spun prototype of the LED board, but I then used this as a mechanism to do a custom surface mount board.  KiCad schematic is here:
+
+To do surface mount, you need to specify a Bill-of-Materials and Pick-and-place file to the manufacturer (in addition to the Gerber Files for board creation).  
+
+The board is a little bigger than 1"x1"...but I layed it out so that you can either plug it directly on top of an ESP8266 Thing, or use it a separate daughter board.
